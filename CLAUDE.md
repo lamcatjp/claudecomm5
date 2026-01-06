@@ -39,6 +39,10 @@ Azure Container Apps (FastAPI/Python)
 
 ```
 /
+├── .claude/                 # Claude Code 設定
+│   ├── agents/              # カスタムエージェント定義
+│   ├── skills/              # 開発スキル定義
+│   └── settings.local.json  # 許可コマンド設定
 ├── docs/                    # 設計ドキュメント
 │   ├── 01_system-requirements-mvp.md    # システム要件定義
 │   ├── 03_screen-definition-mvp.md      # 画面定義
@@ -203,6 +207,54 @@ npm run lint
 - XSS・SQLインジェクション対策
 - PIIマスキング (メール・電話番号)
 - MVPアクセス制限: パスワード認証 (5回失敗で1分ロック)
+
+## Claude Code 設定
+
+### エージェント (.claude/agents/)
+
+プロジェクト専用のカスタムエージェントを定義しています。`/agent <name>` で呼び出し可能。
+
+| エージェント | 説明 |
+|-------------|------|
+| `azure-infra-engineer` | Azure インフラ構築、Bicep/ARM、PowerShell 自動化 |
+| `backend-developer` | FastAPI/Python バックエンド開発、API設計 |
+| `api-designer` | RESTful API 設計、OpenAPI 仕様作成 |
+| `nextjs-developer` | Next.js フロントエンド開発 |
+| `fullstack-developer` | フルスタック開発全般 |
+| `llm-architect` | LLM アーキテクチャ設計、プロンプトエンジニアリング |
+| `prompt-engineer` | プロンプト最適化、RAG パイプライン設計 |
+| `devops-engineer` | CI/CD パイプライン、コンテナ化、デプロイ |
+| `qa-expert` | テスト戦略、品質保証 |
+| `test-automator` | テスト自動化、E2E テスト |
+| `security-auditor` | セキュリティ監査、脆弱性診断 |
+| `performance-engineer` | パフォーマンス最適化 |
+| `code-reviewer` | コードレビュー、ベストプラクティス |
+| `python-pro` | Python 開発のエキスパート |
+| `typescript-pro` | TypeScript 開発のエキスパート |
+| `ai-engineer` | AI/ML エンジニアリング |
+
+### スキル (.claude/skills/)
+
+開発プラクティスを定義したスキルセットです。
+
+| スキル | 説明 |
+|--------|------|
+| `test-driven-development` | TDD（テスト駆動開発）の実践ガイド。Red-Green-Refactor サイクル必須 |
+| `verification-before-completion` | 完了報告前の検証必須。証拠なき主張は禁止 |
+| `systematic-debugging` | 体系的なデバッグ手法、根本原因分析 |
+| `varlock` | 変数ロック、状態管理のベストプラクティス |
+| `webapp-testing` | Web アプリケーションテスト自動化 |
+
+### 許可コマンド (.claude/settings.local.json)
+
+以下のコマンドが事前許可されています：
+
+- **Git**: `git add`, `git commit`, `git push`, `git checkout`, `git branch`, `git pull`
+- **GitHub CLI**: `gh pr create`, `gh pr view`, `gh issue create`, `gh repo create`
+- **npm**: `npm install`, `npm run build`, `npm run lint`, `npm run test`
+- **Python**: `pip`, `python -m venv`
+- **Azure CLI**: `az group create`, `az deployment group create`, `az acr build`, `az containerapp update` など
+- **その他**: `tree`, `find`, `curl`
 
 ## 参考ドキュメント
 
