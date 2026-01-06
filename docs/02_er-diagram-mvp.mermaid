@@ -1,0 +1,607 @@
+# foodllm データベース ER図（MVP版）
+
+## 概要
+
+本ドキュメントでは、foodllm システム（MVP版）で使用するデータベース（Azure Cosmos DB）のエンティティ関連図を定義します。
+
+---
+
+## MVP vs Phase 2 エンティティ
+
+| エンティティ | MVP | Phase 2 | 説明 |
+|-------------|-----|---------|------|
+| SESSIONS | ✅ | | セッション管理 |
+| CONVERSATIONS | ✅ | | 会話（管理者参照用） |
+| MESSAGES | ✅ | | メッセージ |
+| SUGGESTIONS | ✅ | | サジェスト |
+| RECIPES | ✅ | | レシピマスタ |
+| PRODUCTS | ✅ | | 製品マスタ |
+| PRODUCT_FAQ | ✅ | | 製品FAQマスタ |
+| USE_CASES | ✅ | | ユースケース設定 |
+| SUGGESTION_RULES | ✅ | | サジェストルール |
+| FEEDBACK | ✅ | | フィードバック |
+| USERS | - | ✅ | ユーザー管理（Phase 2） |
+| USER_PREFERENCES | - | ✅ | ユーザー設定（Phase 2） |
+| ANALYTICS_EVENTS | - | ✅ | 分析イベント（Phase 2） |
+
+---
+
+## ER図（Mermaid）- MVP版
+
+```mermaid
+erDiagram
+    %% ============================================
+    %% MVP メインエンティティ
+    %% ============================================
+    
+    SESSIONS ||--|{ CONVERSATIONS : "has"
+    CONVERSATIONS ||--|{ MESSAGES : "contains"
+    CONVERSATIONS ||--o{ FEEDBACK : "receives"
+    MESSAGES ||--o{ SUGGESTIONS : "has"
+    MESSAGES ||--o| RECIPES : "references"
+    MESSAGES ||--o{ PRODUCTS : "references"
+    USE_CASES ||--o{ CONVERSATIONS : "belongs_to"
+    USE_CASES ||--o{ RECIPES : "contains"
+    USE_CASES ||--o{ PRODUCTS : "contains"
+    USE_CASES ||--o{ PRODUCT_FAQ : "contains"
+    USE_CASES ||--o{ SUGGESTION_RULES : "has"
+    PRODUCTS ||--o{ PRODUCT_FAQ : "has"
+
+    %% ============================================
+    %% セッション（MVP）
+    %% ============================================
+    SESSIONS {
+        string id PK "セッションID（UUID）"
+        string use_case_id FK "ユースケースID"
+        string device_type "デバイス種別"
+        string user_agent "ユーザーエージェント"
+        datetime created_at "作成日時"
+        datetime last_active_at "最終アクティブ日時"
+        int ttl "TTL（秒）"
+    }
+
+    %% ============================================
+    %% 会話（管理者参照用）
+    %% ============================================
+    CONVERSATIONS {
+        string id PK "会話ID（UUID）"
+        string session_id FK "セッションID"
+        string use_case_id FK "ユースケースID"
+        string status "ステータス（active/completed）"
+        int message_count "メッセージ数"
+        string first_user_message "最初のユーザーメッセージ"
+        int total_tokens "合計トークン数"
+        datetime started_at "開始日時"
+        datetime ended_at "終了日時"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+        int ttl "TTL（秒）"
+    }
+
+    %% ============================================
+    %% メッセージ
+    %% ============================================
+    MESSAGES {
+        string id PK "メッセージID（UUID）"
+        string conversation_id FK "会話ID"
+        string role "送信者（user/assistant/system）"
+        string content "メッセージ内容"
+        string intent "検出された意図"
+        object metadata "メタデータ"
+        string recipe_id "関連レシピID"
+        array product_ids "関連製品ID配列"
+        array faq_ids "関連FAQ ID配列"
+        int tokens_used "使用トークン数"
+        int response_time_ms "応答時間（ms）"
+        datetime created_at "作成日時"
+        int ttl "TTL（秒）"
+    }
+
+    %% ============================================
+    %% サジェスト（クイックリプライ）
+    %% ============================================
+    SUGGESTIONS {
+        string id PK "サジェストID（UUID）"
+        string message_id FK "メッセージID"
+        string label "表示ラベル"
+        string value "送信値"
+        string type "タイプ（text/action）"
+        string icon "アイコン名"
+        int order "表示順序"
+        boolean selected "選択されたか"
+        datetime selected_at "選択日時"
+        datetime created_at "作成日時"
+    }
+
+    %% ============================================
+    %% フィードバック
+    %% ============================================
+    FEEDBACK {
+        string id PK "フィードバックID（UUID）"
+        string session_id FK "セッションID"
+        string conversation_id FK "会話ID"
+        string message_id FK "メッセージID"
+        string rating "評価（positive/negative）"
+        string comment "コメント"
+        datetime created_at "作成日時"
+    }
+
+    %% ============================================
+    %% レシピ
+    %% ============================================
+    RECIPES {
+        string id PK "レシピID"
+        string use_case_id FK "ユースケースID"
+        string title "レシピ名"
+        string description "説明"
+        array ingredients "材料リスト"
+        array steps "調理手順"
+        int cooking_time "調理時間（分）"
+        int servings "人数"
+        string difficulty "難易度（easy/medium/hard）"
+        array tags "タグ配列"
+        string image_url "画像URL"
+        object nutrition "栄養情報"
+        string source_url "元レシピURL"
+        float rating "評価"
+        int view_count "閲覧数"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    %% ============================================
+    %% 製品
+    %% ============================================
+    PRODUCTS {
+        string id PK "製品ID"
+        string use_case_id FK "ユースケースID"
+        string name "製品名"
+        string description "説明"
+        string category "カテゴリ"
+        array usage "使用用途"
+        object nutrition "栄養成分"
+        string image_url "画像URL"
+        string product_url "製品ページURL"
+        array sizes "サイズ展開"
+        boolean is_active "有効フラグ"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    %% ============================================
+    %% 製品FAQ
+    %% ============================================
+    PRODUCT_FAQ {
+        string id PK "FAQ ID"
+        string product_id FK "製品ID"
+        string use_case_id FK "ユースケースID"
+        string question "質問"
+        string answer "回答"
+        string category "カテゴリ（保存方法/使い方/アレルギー等）"
+        array keywords "キーワード配列"
+        int priority "優先度"
+        boolean is_active "有効フラグ"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    %% ============================================
+    %% ユースケース設定
+    %% ============================================
+    USE_CASES {
+        string id PK "ユースケースID"
+        string name "ユースケース名"
+        string display_name "表示名"
+        string description "説明"
+        object theme "テーマ設定（カラー等）"
+        string system_prompt "システムプロンプト"
+        object llm_config "LLM設定"
+        boolean is_active "有効フラグ"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+
+    %% ============================================
+    %% サジェストルール
+    %% ============================================
+    SUGGESTION_RULES {
+        string id PK "ルールID"
+        string use_case_id FK "ユースケースID"
+        string trigger_type "トリガータイプ"
+        string intent "対象意図"
+        array suggestions "サジェスト配列"
+        int priority "優先度"
+        boolean is_active "有効フラグ"
+        datetime created_at "作成日時"
+        datetime updated_at "更新日時"
+    }
+```
+
+---
+
+## エンティティ詳細説明
+
+### SESSIONS（セッション）【MVP】
+ブラウザセッションを管理するエンティティ。ユーザーを識別するが個人情報は保存しない。
+
+**パーティションキー**: `id`
+
+**クライアント側のsession_id保持方式**
+
+| 方式 | 優先度 | 説明 |
+|------|--------|------|
+| LocalStorage | 1（優先） | ブラウザ再起動後も維持 |
+| SessionStorage | 2（フォールバック） | LocalStorage無効時に使用 |
+| Cookie | 使用しない | GDPR対応を考慮し不使用 |
+
+> **注意**: session_idはクライアントで生成（UUID v4）し、初回API呼び出し時にサーバー側でSESSIONSレコードが作成される。
+
+### CONVERSATIONS（会話）【MVP】
+会話セッションを管理。管理者が会話ログを参照するために使用。1つの会話には複数のメッセージが含まれる。
+
+**パーティションキー**: `session_id`
+
+**statusフィールドの遷移**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   [開始] ──→ active ──→ completed                              │
+│               │              │                                  │
+│               │              └──→ [TTL期限切れ] ──→ 自動削除    │
+│               │                                                 │
+│               └──→ abandoned (30分無操作)                       │
+│                        │                                        │
+│                        └──→ [TTL期限切れ] ──→ 自動削除          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| status値 | 説明 | 遷移条件 |
+|----------|------|---------|
+| `active` | アクティブな会話 | 会話開始時（デフォルト） |
+| `completed` | 正常終了 | 「新しい会話を始める」選択時 |
+| `abandoned` | 放棄された会話 | 30分間無操作でタイムアウト |
+
+> **注意**: 「新しい会話を始める」時、既存会話のstatusは`completed`に変更され、新しい会話（status=`active`）が作成される。
+
+### MESSAGES（メッセージ）【MVP】
+会話内の個々のメッセージを管理。ユーザーからの入力とAIの応答の両方を保存。関連FAQ IDも保存。
+
+**パーティションキー**: `conversation_id`
+
+**metadata（メタデータ）スキーマ**:
+```json
+{
+  "intent": "recipe_search",           // 分類された意図
+  "intent_confidence": 0.95,           // 分類信頼度（0-1）
+  "input_method": "text",              // 入力方法: text | suggestion_click | voice
+  "suggestion_clicked": {              // サジェストクリック時のみ
+    "suggestion_id": "sug_001",
+    "label": "減塩にしたい",
+    "index": 0
+  },
+  "rag_sources": [                     // RAG検索で使用したソース
+    {
+      "type": "recipe",
+      "id": "recipe_001",
+      "score": 0.92
+    }
+  ],
+  "model_version": "gpt-4o-2024-08-06", // 使用したモデルバージョン
+  "prompt_version": "v1.2"              // 使用したプロンプトバージョン
+}
+```
+
+### SUGGESTIONS（サジェスト）【MVP】
+クイックリプライとして表示されるサジェスト情報。メッセージに紐づく。
+
+**パーティションキー**: `message_id`
+
+### FEEDBACK（フィードバック）【MVP】
+ユーザーからのフィードバック（👍/👎）を保存。
+
+**パーティションキー**: `conversation_id`
+
+### RECIPES（レシピ）【MVP】
+レシピ情報を管理。Azure AI Searchでインデックス化して検索に使用。
+
+**パーティションキー**: `use_case_id`
+
+**nutrition（栄養情報）スキーマ**:
+```json
+{
+  "per_serving": "1人分あたり",
+  "calories": 45,        // kcal
+  "protein": 3.2,        // g
+  "fat": 1.5,            // g
+  "carbohydrates": 4.8,  // g
+  "sodium": 580,         // mg
+  "fiber": 0.5           // g (オプション)
+}
+```
+
+### PRODUCTS（製品）【MVP】
+製品情報を管理。Azure AI Searchでインデックス化して検索に使用。
+
+**パーティションキー**: `use_case_id`
+
+**sizes（サイズ展開）スキーマ**:
+```json
+{
+  "sizes": [
+    {
+      "name": "8g×20本入",
+      "jan_code": "4901001012345",
+      "price": 298,           // 税抜参考価格（円）
+      "is_main": true         // メイン商品フラグ
+    },
+    {
+      "name": "60g袋",
+      "jan_code": "4901001012346",
+      "price": 198,
+      "is_main": false
+    }
+  ]
+}
+```
+
+### PRODUCT_FAQ（製品FAQ）【MVP】
+製品に関するよくある質問と回答を管理。RAG検索で使用。カテゴリ別（保存方法、使い方、アレルギー、賞味期限など）に分類。
+
+**パーティションキー**: `use_case_id`
+
+### USE_CASES（ユースケース）【MVP】
+ほんだし、たんぱく質等のユースケース設定を管理。**テーマ設定**（味の素のカラーパレット）やシステムプロンプトを含む。
+
+**パーティションキー**: `id`
+
+### SUGGESTION_RULES（サジェストルール）【MVP】
+ユースケース別のサジェスト表示ルールを管理。
+
+**パーティションキー**: `use_case_id`
+
+**suggestions（サジェスト配列）スキーマ**:
+```json
+{
+  "suggestions": [
+    {
+      "id": "sug_001",
+      "label": "おすすめレシピを見る",
+      "value": "おすすめのレシピを教えてください",
+      "type": "text",
+      "icon": "recipe",
+      "priority": 1
+    },
+    {
+      "id": "sug_002",
+      "label": "保存方法を知りたい",
+      "value": "show_faq:storage",
+      "type": "action",
+      "icon": "info",
+      "priority": 2
+    }
+  ]
+}
+```
+
+**trigger_type の取りうる値**:
+
+| 値 | 説明 | 例 |
+|----|------|-----|
+| `welcome` | 初回会話開始時 | ウェルカムメッセージ後のサジェスト |
+| `intent_match` | 特定の意図検出時 | `recipe_provided` 後のサジェスト |
+| `keyword_match` | キーワード一致時 | 「保存方法」を含む質問後 |
+| `fallback` | どのルールにも一致しない時 | デフォルトサジェスト |
+| `session_idle` | 一定時間無操作時 | 会話再開促進サジェスト |
+
+---
+
+## Cosmos DB コンテナ設計（MVP）
+
+| コンテナ名 | パーティションキー | TTL | MVP | 用途 |
+|-----------|------------------|-----|-----|------|
+| sessions | /id | 7776000秒（90日） | ✅ | セッション管理 |
+| conversations | /session_id | 7776000秒（90日） | ✅ | 会話（管理者用） |
+| messages | /conversation_id | 7776000秒（90日） | ✅ | メッセージ |
+| suggestions | /message_id | 7776000秒（90日） | ✅ | サジェスト |
+| feedback | /conversation_id | 7776000秒（90日） | ✅ | フィードバック |
+| recipes | /use_case_id | なし | ✅ | レシピマスタ |
+| products | /use_case_id | なし | ✅ | 製品マスタ |
+| product_faq | /use_case_id | なし | ✅ | 製品FAQマスタ |
+| use_cases | /id | なし | ✅ | ユースケース設定 |
+| suggestion_rules | /use_case_id | なし | ✅ | サジェストルール |
+
+> **analyticsコンテナについて**: 開発プランでは将来用として言及されていますが、**MVPでは対象外**です。Phase 2以降で分析機能実装時に追加します。
+
+### パーティションキー設計の理由
+
+| コンテナ | パーティションキー | 設計理由 |
+|---------|------------------|---------|
+| sessions | `/id` | セッション単体での取得が主なアクセスパターン |
+| conversations | `/session_id` | 同一セッション内の会話一覧取得を効率化 |
+| messages | `/conversation_id` | 同一会話内のメッセージ一覧取得を効率化 |
+| feedback | `/conversation_id` | 会話単位でのフィードバック集計を効率化 |
+| recipes, products, product_faq | `/use_case_id` | ユースケース別のデータ分離（マルチテナント対応準備） |
+
+> **ホットパーティション対策について**
+> - 開発プランでは `{useCase}_{yearMonth}` 複合キーを推奨していますが、MVPでは単純な設計を優先
+> - 想定トラフィック（100ユーザー同時接続）では現設計で問題なし
+> - Phase 2以降でトラフィック増加時に再設計を検討
+
+---
+
+## インデックス設計
+
+### 複合インデックス
+
+```json
+{
+  "conversations": [
+    {
+      "path": "/session_id",
+      "order": "ascending"
+    },
+    {
+      "path": "/created_at",
+      "order": "descending"
+    }
+  ],
+  "messages": [
+    {
+      "path": "/conversation_id",
+      "order": "ascending"
+    },
+    {
+      "path": "/created_at",
+      "order": "ascending"
+    }
+  ],
+  "product_faq": [
+    {
+      "path": "/product_id",
+      "order": "ascending"
+    },
+    {
+      "path": "/category",
+      "order": "ascending"
+    }
+  ]
+}
+```
+
+### 管理者用クエリ用インデックス
+
+```json
+{
+  "conversations": [
+    {
+      "path": "/use_case_id",
+      "order": "ascending"
+    },
+    {
+      "path": "/started_at",
+      "order": "descending"
+    }
+  ]
+}
+```
+
+---
+
+## USE_CASES テーマ設定例（味の素カラー）
+
+```json
+{
+  "id": "hondashi",
+  "name": "hondashi",
+  "display_name": "ほんだし AI アシスタント",
+  "description": "和食・だし料理のことなら何でもお聞きください",
+  "theme": {
+    "primary_color": "#E60012",
+    "secondary_color": "#8B4513",
+    "accent_color": "#D4A853",
+    "background_color": "#FFFAF5",
+    "ai_bubble_color": "#FFF8F0",
+    "user_bubble_color": "#E60012",
+    "text_color": "#3D3D3D"
+  },
+  "system_prompt": "あなたは「ほんだし」に関する質問に答えるAIアシスタントです...",
+  "llm_config": {
+    "model": "gpt-4o",
+    "temperature": 0.7,
+    "max_tokens": 1000
+  },
+  "is_active": true
+}
+```
+
+---
+
+## PRODUCT_FAQ データ例
+
+```json
+{
+  "id": "faq_001",
+  "product_id": "prod_001",
+  "use_case_id": "hondashi",
+  "question": "ほんだしの保存方法は？",
+  "answer": "開封後は湿気を避けて、密閉容器に入れて冷暗所で保存してください。冷蔵庫での保存も可能です。",
+  "category": "保存方法",
+  "keywords": ["保存", "保管", "開封後", "冷蔵庫"],
+  "priority": 1,
+  "is_active": true
+}
+```
+
+```json
+{
+  "id": "faq_002",
+  "product_id": "prod_001",
+  "use_case_id": "hondashi",
+  "question": "ほんだしにアレルギー物質は含まれていますか？",
+  "answer": "ほんだしには、小麦・乳成分が含まれています。アレルギーをお持ちの方はご注意ください。詳しくは製品パッケージの表示をご確認ください。",
+  "category": "アレルギー",
+  "keywords": ["アレルギー", "アレルゲン", "小麦", "乳"],
+  "priority": 1,
+  "is_active": true
+}
+```
+
+```json
+{
+  "id": "faq_003",
+  "product_id": "prod_001",
+  "use_case_id": "hondashi",
+  "question": "ほんだしの1回の使用量の目安は？",
+  "answer": "味噌汁の場合、水400ml（2人分）に対して小さじ1（4g）が目安です。煮物の場合は、水300mlに対して小さじ1程度です。お好みで調整してください。",
+  "category": "使い方",
+  "keywords": ["使用量", "目安", "分量", "小さじ"],
+  "priority": 1,
+  "is_active": true
+}
+```
+
+---
+
+## Phase 2 追加エンティティ（参考）
+
+### USERS（ユーザー）【Phase 2】
+```
+- id: ユーザーID
+- email: メールアドレス（オプション）
+- created_at: 作成日時
+- last_login_at: 最終ログイン日時
+```
+
+### USER_PREFERENCES（ユーザー設定）【Phase 2】
+```
+- id: 設定ID
+- user_id: ユーザーID
+- dietary_restrictions: 食事制限
+- favorite_recipes: お気に入りレシピ
+- notification_settings: 通知設定
+```
+
+### ANALYTICS_EVENTS（分析イベント）【Phase 2】
+```
+- id: イベントID
+- conversation_id: 会話ID
+- event_type: イベントタイプ
+- event_data: イベントデータ
+- timestamp: タイムスタンプ
+```
+
+---
+
+## 更新履歴
+
+| 日付 | バージョン | 更新内容 |
+|------|-----------|---------|
+| 2025-01-02 | 1.0 | 初版作成 |
+| 2025-01-02 | 1.1 | MVP版に更新 |
+| 2025-01-02 | 1.2 | 製品FAQ（PRODUCT_FAQ）エンティティ追加、関連レシピをPhase2へ移動 |
+| 2025-01-02 | 1.3 | 会話ログ保持期間を90日に統一 |
+| 2025-01-02 | 1.4 | パーティションキー設計理由追加、analyticsコンテナMVP対象外明記、trigger_type一覧追加、nutritionスキーマ追加 |
+| 2025-01-03 | 1.5 | MESSAGESのmetadataスキーマ詳細追加 |
+| 2025-01-03 | 1.6 | PRODUCTS.sizesスキーマ追加、SUGGESTION_RULES.suggestionsスキーマ追加、会話ステータス遷移図追加、セッション保持方式追加 |
